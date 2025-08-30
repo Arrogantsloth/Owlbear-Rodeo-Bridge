@@ -1,0 +1,118 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>PDF Dice Bridge</title>
+    <style>
+      body{font:14px system-ui, sans-serif; margin:0; padding:12px}
+      .row{display:flex; gap:8px; align-items:center; margin-bottom:8px}
+      input[type="number"]{width:90px}
+      .log{height:140px; overflow:auto; border:1px solid #ddd; padding:6px}
+    </style>
+  </head>
+  <body>
+    <div class="row">
+      <label>Port:</label>
+      <input id="port" type="number" min="1024" value="17620"/>
+      <label><input id="autostart" type="checkbox" checked> Auto-start</label>
+    </div>
+    <div class="row">
+      <button id="start">Start</button>
+      <button id="stop">Stop</button>
+      <span id="status">idle</span>
+    </div>
+    <div class="log" id="log"></div>
+
+    <script type="module">
+      import OBR from "https://cdn.jsdelivr.net/npm/@owlbear-rodeo/sdk/+esm";
+
+      const logEl = document.getElementById("log");
+      const statusEl = document.getElementById("status");
+      const portEl = document.getElementById("port");
+      const autostartEl = document.getElementById("autostart");
+      const startBtn = document.getElementById("start");
+      const stopBtn = document.getElementById("stop");
+
+      let since = 0, running = false, pollAbort = null;
+
+      function logLine(s){
+        const div = document.createElement("div");
+        div.textContent = s;
+        logEl.appendChild(div);
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+      function setStatus(s){ statusEl.textContent = s; }
+
+      async function notify(text){
+        try{
+          await OBR.notification.show(text); // local toast-like banner
+          // Optionally echo to other players who have this extension installed:
+          await OBR.broadcast.sendMessage("pdf.dice.roll", { text, ts: Date.now() });
+        }catch(e){ /* ignore */ }
+      }
+
+      async function pollOnce(){
+        const port = Number(portEl.value || 17620);
+        const url = `http://127.0.0.1:${port}/pull?since=${since}&target=owlbear`;
+        const res = await fetch(url, { cache:"no-store" });
+
+        const text = await res.text(); // read body once
+        if (!res.ok) {
+          throw new Error(`Bridge HTTP ${res.status}: ${text.slice(0,200)}`);
+        }
+        // Guard: ensure it's JSON, not HTML
+        const ct = res.headers.get("content-type") || "";
+        if (!ct.includes("application/json")) {
+          console.error("Non-JSON from bridge:", text.slice(0,200));
+          throw new Error("Bridge returned non-JSON (see console)");
+        }
+
+        // Safe to parse now
+        const data = JSON.parse(text);  // { events: [...], last: N }
+        if (Array.isArray(data?.events)){
+          for (const ev of data.events){
+            const msg = ev.roll || ev.text || "";
+            if (msg){
+              logLine(msg);
+              await notify(msg);
+            }
+          }
+        }
+        if (typeof data?.last === "number") since = data.last;
+      }
+
+
+      async function loop(){
+        setStatus("running");
+        while(running){
+          try{
+            pollAbort = new AbortController();
+            await pollOnce();
+            await new Promise(r => setTimeout(r, 50));
+          }catch(e){
+            setStatus("error");
+            await new Promise(r => setTimeout(r, 500));
+          }finally{
+            pollAbort = null;
+          }
+        }
+        setStatus("stopped");
+      }
+
+      startBtn.onclick = () => {
+        if (running) return;
+        running = true; since = since || 0;
+        loop();
+      };
+      stopBtn.onclick = () => {
+        running = false;
+        try { pollAbort?.abort(); } catch {}
+      };
+
+      // Start automatically when embedded
+      OBR.onReady(() => {
+        if (autostartEl.checked) startBtn.click();
+      });
+    </script>
+  </body>
+</html>

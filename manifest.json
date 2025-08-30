@@ -1,0 +1,12 @@
+{
+  "manifest_version": 1,
+  "name": "PDF Dice Bridge",
+  "version": "0.1.0",
+  "action": {
+    "title": "PDF Dice Bridge",
+    "icon": "/icon.svg",
+    "popover": "/",
+    "width": 360,
+    "height": 240
+  }
+}
