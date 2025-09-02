@@ -53,32 +53,32 @@
 
       async function pollOnce(){
         const port = Number(portEl.value || 17620);
-        const url = `http://127.0.0.1:${port}/pull?since=${since}&target=owlbear`;
-        const res = await fetch(url, { cache:"no-store" });
+        const url = `http://127.0.0.1:${port}/pull?since=${since}&target=owlbear`; // <<< include target
 
-        const text = await res.text(); // read body once
+        const res = await fetch(url, { cache:"no-store" });
+        const text = await res.text();
+
         if (!res.ok) {
-          throw new Error(`Bridge HTTP ${res.status}: ${text.slice(0,200)}`);
+          console.error("Bridge HTTP error:", res.status, text.slice(0,200));
+          throw new Error(`Bridge ${res.status}`);
         }
-        // Guard: ensure it's JSON, not HTML
         const ct = res.headers.get("content-type") || "";
         if (!ct.includes("application/json")) {
-          console.error("Non-JSON from bridge:", text.slice(0,200));
-          throw new Error("Bridge returned non-JSON (see console)");
+          console.error("Bridge returned non-JSON:", text.slice(0,200));
+          throw new Error("Non-JSON from bridge");
         }
 
-        // Safe to parse now
-        const data = JSON.parse(text);  // { events: [...], last: N }
-        if (Array.isArray(data?.events)){
-          for (const ev of data.events){
+        const data = JSON.parse(text); // { events:[{id, roll, target}], last }
+        if (Array.isArray(data.events)) {
+          for (const ev of data.events) {
             const msg = ev.roll || ev.text || "";
-            if (msg){
+            if (msg) {
               logLine(msg);
-              await notify(msg);
+              await OBR.notification.show(msg); // show a banner in OBR
             }
           }
         }
-        if (typeof data?.last === "number") since = data.last;
+        if (typeof data.last === "number") since = data.last;
       }
 
 
@@ -116,3 +116,4 @@
     </script>
   </body>
 </html>
+
