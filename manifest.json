@@ -4,13 +4,9 @@
   "version": "0.1.0",
   "action": {
     "title": "PDF Dice Bridge",
-    "icon": "icon.svg",
-    "popover": "index.html",
+    "icon": "/Owlbear-Rodeo-Bridge/icon.svg",
+    "popover": "/Owlbear-Rodeo-Bridge/index.html",
     "width": 360,
     "height": 240
   }
 }
-
-
-
-
