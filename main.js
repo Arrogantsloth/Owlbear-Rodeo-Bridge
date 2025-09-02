@@ -1,5 +1,6 @@
 // main.js — OBR popover poller for Owlbear events
 import OBR from "https://cdn.jsdelivr.net/npm/@owlbear-rodeo/sdk/+esm";
+import { DiceRoll } from "https://cdn.jsdelivr.net/npm/@dice-roller/rpg-dice-roller/+esm";
 
 const logEl = document.getElementById("log");
 const statusEl = document.getElementById("status");
@@ -52,15 +53,16 @@ async function pollOnce(signal){
   if (!ct.includes("application/json")){ logLine("Non-JSON from bridge: "+text.slice(0,120), "err"); throw new Error("nonjson"); }
 
   const data = JSON.parse(text);
-  if (Array.isArray(data.events)){
-    for (const ev of data.events){
-      const msg = ev.roll || ev.text || "";
-      if (msg){
-        logLine(msg);
-        try{ await OBR.notification.show(msg); }catch{}
-      }
+  if (Array.isArray(data.events)) {
+  for (const ev of data.events) {
+    const msg = ev.roll || ev.text || "";
+    if (msg) {
+      logLine(msg);
+      // Perform the actual dice roll client-side:
+      await rollAndAnnounce(msg);
     }
   }
+}
   if (typeof data.last === "number") since = data.last;
 }
 
@@ -85,6 +87,42 @@ async function loop(){
     }
   }
   setStatus("stopped");
+}
+
+function normalizeNotation(s) {
+  // tidy up “d20 + 3”, unicode minus, uppercase “D”, etc.
+  return (s || "")
+    .replace(/\u2212/g, "-")
+    .replace(/\s+/g, "")
+    .replace(/D/g, "d");
+}
+
+async function rollAndAnnounce(notation) {
+  const n = normalizeNotation(notation);
+  let total, detail;
+  try {
+    const r = new DiceRoll(n);            // parses + rolls once
+    total = r.total;                      // number
+    detail = r.output;                    // e.g. "2d20kh1+3: [17, 4] + 3 = 20"
+  } catch (e) {
+    await OBR.notification.show(`OBR Dice: invalid roll "${notation}"`, "ERROR");
+    return;
+  }
+
+  // Show everyone (who has the extension) via broadcast
+  const payload = { notation: n, total, detail };
+  try { await OBR.broadcast.sendMessage("arrogantsloth.pdfdice.roll", payload); } catch {}
+
+  // Local toast
+  await OBR.notification.show(detail, "SUCCESS");
+
+  // Optional: drop a temporary local label in the scene (client-only)
+  // Remove if you don’t want scene artifacts.
+  try {
+    const { buildLabel } = await import("https://cdn.jsdelivr.net/npm/@owlbear-rodeo/sdk/+esm");
+    const item = buildLabel().plainText(detail).build();
+    await OBR.scene.local.addItems([item]);  // local-only
+  } catch {}
 }
 
 startBtn.onclick = async () => {
