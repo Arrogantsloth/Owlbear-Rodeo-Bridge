@@ -4,9 +4,10 @@
   "version": "0.1.0",
   "action": {
     "title": "PDF Dice Bridge",
-    "icon": "/Owlbear-Rodeo-Bridge/icon.svg",
-    "popover": "/Owlbear-Rodeo-Bridge/index.html",
+    "icon": "https://arrogantsloth.github.io/Owlbear-Rodeo-Bridge/icon.svg",
+    "popover": "https://arrogantsloth.github.io/Owlbear-Rodeo-Bridge/index.html",
     "width": 360,
     "height": 240
   }
 }
+
