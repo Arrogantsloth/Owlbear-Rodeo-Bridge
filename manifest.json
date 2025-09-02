@@ -5,8 +5,9 @@
   "action": {
     "title": "PDF Dice Bridge",
     "icon": "icon.svg",
-    "popover": "index.html",
+    "popover": "/index.html",
     "width": 360,
     "height": 240
   }
 }
+
